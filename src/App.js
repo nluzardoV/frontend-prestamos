@@ -1,25 +1,28 @@
-import logo from './logo.svg';
-import './App.css';
+import { useState } from 'react';
+import './index.css';
+import Login from './Login';
+import AdminPanel from './AdminPanel';
+import ClientDashboard from './ClientDashboard';
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+  const [rol, setRol] = useState(localStorage.getItem('rol'));
+
+  const handleLogin = (rolRecibido) => {
+    setRol(rolRecibido);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    setRol(null);
+  };
+
+  if (!rol) return <Login onLogin={handleLogin} />;
+
+  if (rol === 'ADMIN') {
+    return <AdminPanel onLogout={handleLogout} />;
+  }
+
+  return <ClientDashboard onLogout={handleLogout} />;
 }
 
 export default App;
