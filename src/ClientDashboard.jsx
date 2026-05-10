@@ -78,6 +78,7 @@ export default function ClientDashboard({ onLogout }) {
                   <thead>
                     <tr className="border-b border-gray-100 text-gray-400">
                       <th className="pb-2 font-medium">Quincena</th>
+                      <th className="pb-2 font-medium">Fecha</th>
                       <th className="pb-2 font-medium">Monto</th>
                       <th className="pb-2 font-medium">Estado</th>
                     </tr>
@@ -86,6 +87,7 @@ export default function ClientDashboard({ onLogout }) {
                     {prestamo.pagos.map(pago => (
                       <tr key={pago.id} className="border-b border-gray-50 last:border-0">
                         <td className="py-2 text-gray-600">#{pago.numero_quincena}</td>
+                        <td className="py-2 text-gray-600">{pago.fecha_esperada || '---'}</td>
                         <td className="py-2 text-gray-900 font-medium">${Number(pago.monto_esperado).toFixed(2)}</td>
                         <td className="py-2">
                           <span className={`text-xs px-2 py-1 rounded-full ${

@@ -351,6 +351,7 @@ export default function AdminPanel({ onLogout }) {
                 <thead>
                   <tr className="border-b border-gray-100 text-gray-400">
                     <th className="pb-2 text-left font-medium">Quincena</th>
+                    <th className="pb-2 text-left font-medium">Fecha</th>
                     <th className="pb-2 text-left font-medium">Monto</th>
                     <th className="pb-2 text-left font-medium">Estado</th>
                     <th className="pb-2 text-left font-medium">Acción</th>
@@ -360,6 +361,7 @@ export default function AdminPanel({ onLogout }) {
                   {prestamoDetalle.pagos.map(pago => (
                     <tr key={pago.id} className="border-b border-gray-50 last:border-0">
                       <td className="py-2 text-gray-600">#{pago.numero_quincena}</td>
+                      <td className="py-2 text-gray-600">{pago.fecha_esperada || '---'}</td>
                       <td className="py-2 font-medium">${Number(pago.monto_esperado).toFixed(2)}</td>
                       <td className="py-2">
                         <span className={`text-xs px-2 py-1 rounded-full ${

@@ -2,15 +2,15 @@ import { useState, useMemo } from "react";
 import api from './api';
 
 const IVA = 0.16;
-const TOTAL_QUINCENAS = 24;
 
-function calcular({ costo, factor, comision, deduccionPct, bcv, paralelo }) {
+function calcular({ costo, factor, comision, deduccionPct, bcv, paralelo, quincenas }) {
   const _costo = parseFloat(costo) || 0;
   const _factor = parseFloat(factor) || 0;
   const _comision = parseFloat(comision) || 0;
   const _deduccionPct = parseFloat(deduccionPct) || 0;
   const _bcv = parseFloat(bcv) || 1;
   const _paralelo = parseFloat(paralelo) || 1;
+  const _quincenas = parseInt(quincenas) || 24;
 
   const precioVenta = _costo * _factor;
   const inversionInicial = _costo + _comision;
@@ -18,10 +18,10 @@ function calcular({ costo, factor, comision, deduccionPct, bcv, paralelo }) {
   const utilidadBruta = precioVenta - deduccionUSD;
   const comercializacion = utilidadBruta * 0.1;
   const utilidadNeta = utilidadBruta - comercializacion;
-  const utilidadMensual = utilidadNeta / 12;
+  const utilidadMensual = utilidadNeta / (_quincenas / 2);
   const roi = utilidadNeta - inversionInicial;
   const roiPct = inversionInicial > 0 ? (roi / inversionInicial) * 100 : 0;
-  const cuotaUSD = precioVenta / TOTAL_QUINCENAS;
+  const cuotaUSD = precioVenta / _quincenas;
   const diferencialCambiario = Math.abs(((_bcv - _paralelo) / _paralelo) * 100);
 
   return {
@@ -66,6 +66,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
     deduccionPct: 10,
     bcv: 48.25,
     paralelo: 62,
+    quincenas: 24,
   });
   const [view, setView] = useState("usd");
 
@@ -74,12 +75,12 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
 
   const s = useMemo(() => calcular(form), [form]);
 
-  // Build 24 quincenas
-  const quincenas = useMemo(() => {
-    const capitalPorQ = s.inversionInicial / TOTAL_QUINCENAS;
-    const margenPorQ = s.utilidadNeta / TOTAL_QUINCENAS;
+  const quincenasLista = useMemo(() => {
+    const _q = parseInt(form.quincenas) || 24;
+    const capitalPorQ = s.inversionInicial / _q;
+    const margenPorQ = s.utilidadNeta / _q;
     let acumCapital = 0;
-    return Array.from({ length: TOTAL_QUINCENAS }, (_, i) => {
+    return Array.from({ length: _q }, (_, i) => {
       const q = i + 1;
       const mes = Math.ceil(q / 2);
       const label = q % 2 === 1 ? `Mes ${mes} — 1ª` : `Mes ${mes} — 2ª`;
@@ -87,7 +88,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
       const esRetorno = acumCapital <= s.inversionInicial + 0.001;
       return { q, label, cuota: s.cuotaUSD, capital: capitalPorQ, margen: margenPorQ, esRetorno };
     });
-  }, [s]);
+  }, [s, form.quincenas]);
 
   function displayAmount(usd) {
     if (view === "usd") return fmtCur(usd);
@@ -100,7 +101,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
     { label: "Utilidad neta", value: fmtCur(s.utilidadNeta), sub: "Tras deducción y comercialización", color: "text-emerald-600" },
     { label: "Inversión inicial", value: fmtCur(s.inversionInicial), sub: "Costo + comisión vendedor", color: "text-gray-900" },
     { label: "ROI neto", value: `${fmt(s.roiPct, 1)}%`, sub: `${fmtCur(s.roi)} sobre la inversión`, color: "text-amber-600" },
-    { label: "Cuota quincenal", value: fmtCur(s.cuotaUSD), sub: "24 quincenas (12 meses)", color: "text-gray-900" },
+    { label: "Cuota quincenal", value: fmtCur(s.cuotaUSD), sub: `${form.quincenas} quincenas`, color: "text-gray-900" },
     { label: "Diferencial cambiario", value: `${fmt(s.diferencialCambiario, 1)}%`, sub: "BCV vs Paralelo", color: "text-gray-900" },
   ];
 
@@ -171,6 +172,10 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
               <label className={labelClass}>Deducción empresa de cobranza (%)</label>
               <input type="number" className={inputClass} value={form.deduccionPct} step="0.1" min="0" max="100" onChange={set("deduccionPct")} />
             </div>
+            <div>
+              <label className={labelClass}>Número de quincenas</label>
+              <input type="number" className={inputClass} value={form.quincenas} step="1" min="1" onChange={set("quincenas")} />
+            </div>
           </div>
 
           <div className="border-t border-gray-100 my-4" />
@@ -208,7 +213,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
 
         {/* Payments Table */}
         <div>
-          <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-3">Tabla de pagos — 24 quincenas</p>
+          <p className="text-xs uppercase tracking-widest text-gray-400 font-medium mb-3">Tabla de pagos — {form.quincenas} quincenas</p>
           <div className="flex gap-2 mb-4">
             {[["usd", "USD"], ["bcv", "Bolívares BCV"], ["paralelo", "Bolívares paralelo"]].map(([v, label]) => (
               <button
@@ -236,7 +241,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                   </tr>
                 </thead>
                 <tbody>
-                  {quincenas.map(({ q, label, cuota, capital, margen, esRetorno }) => (
+                  {quincenasLista.map(({ q, label, cuota, capital, margen, esRetorno }) => (
                     <tr key={q} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-2.5 text-gray-400">{q}</td>
                       <td className="px-4 py-2.5 text-gray-700">{label}</td>
@@ -286,7 +291,8 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                   try {
                     const res = await api.post('/prestamos', {
                       empleadoId: parseInt(selectedCliente),
-                      costoEquipo: form.costo
+                      costoEquipo: form.costo,
+                      quincenas: parseInt(form.quincenas)
                     });
                     if (res.data.alerta) {
                       alert(res.data.mensaje); // Requires admin bypass if over 70%, but backend blocks it unless we pass autorizadoPor. For now just alert.
