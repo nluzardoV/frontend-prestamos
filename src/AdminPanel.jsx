@@ -13,7 +13,8 @@ export default function AdminPanel({ onLogout }) {
   const [showEquipoModal, setShowEquipoModal] = useState(false);
   const [nuevoCliente, setNuevoCliente] = useState({
     nombre: '', cedula: '', cargo: '', fecha_ingreso: '',
-    salario_neto: '', monto_liquidacion_actual: ''
+    salario_neto: '', monto_liquidacion_actual: '',
+    banco: '', numero_cuenta: '', tipo_cuenta: 'Ahorro'
   });
 
   useEffect(() => { fetchData(); }, [tab]);
@@ -44,7 +45,7 @@ export default function AdminPanel({ onLogout }) {
         empleadoId: res.data.id
       });
       setShowClienteModal(false);
-      setNuevoCliente({ nombre: '', cedula: '', cargo: '', fecha_ingreso: '', salario_neto: '', monto_liquidacion_actual: '' });
+      setNuevoCliente({ nombre: '', cedula: '', cargo: '', fecha_ingreso: '', salario_neto: '', monto_liquidacion_actual: '', banco: '', numero_cuenta: '', tipo_cuenta: 'Ahorro' });
       fetchData();
       alert('Cliente registrado. Usuario: ' + nuevoCliente.nombre + ' / Contraseña: ' + nuevoCliente.cedula);
     } catch (err) {
@@ -121,6 +122,63 @@ export default function AdminPanel({ onLogout }) {
     }
   }
 
+  function handleExportarTXT() {
+    let contenido = "cedula|nombre|banco|numero_cuenta|tipo_cuenta|monto_cuota|fecha_quincena\n";
+    prestamos.forEach(p => {
+      if (p.estado === 'PENDIENTE' || p.estado === 'APROBADO') {
+        const empleado = p.empleado;
+        if (p.pagos) {
+          p.pagos.forEach(pago => {
+            if (pago.estado === 'PENDIENTE') {
+              contenido += `${empleado.cedula}|${empleado.nombre}|${empleado.banco || ''}|${empleado.numero_cuenta || ''}|${empleado.tipo_cuenta || ''}|${pago.monto_esperado}|${pago.fecha_esperada || ''}\n`;
+            }
+          });
+        }
+      }
+    });
+    
+    const blob = new Blob([contenido], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `remesa_quincena_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleExportarExcel() {
+    const data = [];
+    prestamos.forEach(p => {
+      if (p.estado === 'PENDIENTE' || p.estado === 'APROBADO') {
+        const empleado = p.empleado;
+        if (p.pagos) {
+          p.pagos.forEach(pago => {
+            if (pago.estado === 'PENDIENTE') {
+              data.push({
+                Cedula: empleado.cedula,
+                Nombre: empleado.nombre,
+                Banco: empleado.banco || '',
+                Cuenta: empleado.numero_cuenta || '',
+                Tipo: empleado.tipo_cuenta || '',
+                Monto: Number(pago.monto_esperado).toFixed(2),
+                Fecha: pago.fecha_esperada || ''
+              });
+            }
+          });
+        }
+      }
+    });
+
+    import('xlsx').then((XLSX) => {
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Remesa");
+      XLSX.writeFile(wb, `remesa_quincena_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }).catch(() => {
+      alert("Error: Para descargar en Excel necesitas instalar la librería primero. Por favor ejecuta 'npm install xlsx' en la terminal de frontend-prestamos.");
+    });
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="flex justify-between items-center px-6 py-3 bg-white border-b border-gray-200">
@@ -195,7 +253,17 @@ export default function AdminPanel({ onLogout }) {
 
         {tab === 'prestamos' && (
           <div className="max-w-5xl mx-auto">
-            <h1 className="text-xl font-medium text-gray-900 mb-4">Préstamos Activos</h1>
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-xl font-medium text-gray-900">Préstamos Activos</h1>
+              <div className="flex gap-2">
+                <button onClick={handleExportarTXT} className="bg-gray-800 text-white px-4 py-2 text-sm rounded-lg hover:bg-gray-700">
+                  Exportar Remesa (TXT)
+                </button>
+                <button onClick={handleExportarExcel} className="bg-green-700 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-600">
+                  Exportar Remesa (Excel)
+                </button>
+              </div>
+            </div>
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
@@ -301,6 +369,22 @@ export default function AdminPanel({ onLogout }) {
                 <input required type="date" className="w-full border rounded p-2 text-sm" value={nuevoCliente.fecha_ingreso} onChange={e => setNuevoCliente({...nuevoCliente, fecha_ingreso: e.target.value})} />
                 <input required type="number" placeholder="Salario Neto ($)" className="w-full border rounded p-2 text-sm" value={nuevoCliente.salario_neto} onChange={e => setNuevoCliente({...nuevoCliente, salario_neto: e.target.value})} />
                 <input required type="number" placeholder="Monto Liquidación Estimado ($)" className="w-full border rounded p-2 text-sm" value={nuevoCliente.monto_liquidacion_actual} onChange={e => setNuevoCliente({...nuevoCliente, monto_liquidacion_actual: e.target.value})} />
+                
+                <h3 className="text-sm font-medium mt-4 border-t pt-4">Datos Bancarios</h3>
+                <select required className="w-full border rounded p-2 text-sm" value={nuevoCliente.banco} onChange={e => setNuevoCliente({...nuevoCliente, banco: e.target.value})}>
+                  <option value="">Seleccione Banco</option>
+                  <option value="Banesco">Banesco</option>
+                  <option value="Mercantil">Mercantil</option>
+                  <option value="Provincial">Provincial</option>
+                  <option value="Venezuela">Banco de Venezuela</option>
+                  <option value="BNC">BNC</option>
+                  <option value="Bicentenario">Bicentenario</option>
+                </select>
+                <input required placeholder="Número de cuenta (20 dígitos)" className="w-full border rounded p-2 text-sm" value={nuevoCliente.numero_cuenta} onChange={e => setNuevoCliente({...nuevoCliente, numero_cuenta: e.target.value})} maxLength={20} />
+                <select required className="w-full border rounded p-2 text-sm" value={nuevoCliente.tipo_cuenta} onChange={e => setNuevoCliente({...nuevoCliente, tipo_cuenta: e.target.value})}>
+                  <option value="Ahorro">Ahorro</option>
+                  <option value="Corriente">Corriente</option>
+                </select>
                 <div className="flex gap-2 justify-end mt-6">
                   <button type="button" onClick={() => setShowClienteModal(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900">Cancelar</button>
                   <button type="submit" className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg">Guardar Cliente</button>
