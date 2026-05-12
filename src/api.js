@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://sistema-prestamos-pedro.onrender.com'
+  baseURL: process.env.NODE_ENV === 'development'
+    ? 'http://localhost:3000'
+    : 'https://sistema-prestamos-pedro.onrender.com'
 
 });
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import api from './api';
 
 const IVA = 0.16;
@@ -66,9 +66,33 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
     deduccionPct: 10,
     bcv: 48.25,
     paralelo: 62,
+    binance: 0,
     quincenas: 24,
   });
   const [view, setView] = useState("usd");
+
+  useEffect(() => {
+    async function fetchTasas() {
+      try {
+        const res = await api.get('/tasas');
+        const tasas = Array.isArray(res.data) ? res.data : [];
+        const bcv = tasas.find((t) => t.tipo === 'BCV');
+        const paralelo = tasas.find((t) => t.tipo === 'PARALELO');
+        const binance = tasas.find((t) => t.tipo === 'BINANCE');
+
+        setForm((prev) => ({
+          ...prev,
+          ...(bcv ? { bcv: Number(bcv.valor) } : {}),
+          ...(paralelo ? { paralelo: Number(paralelo.valor) } : {}),
+          ...(binance ? { binance: Number(binance.valor) } : {}),
+        }));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetchTasas();
+  }, []);
 
   const set = (k) => (e) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }));
@@ -188,6 +212,13 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
             <div>
               <label className={labelClass}>Tasa paralelo (Bs/$)</label>
               <input type="number" className={inputClass} value={form.paralelo} step="0.01" min="1" onChange={set("paralelo")} />
+            </div>
+            <div className="col-span-2 bg-gray-950 text-white rounded-xl px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-400">USDT Binance</p>
+                <p className="text-sm text-gray-300">Actualización automática</p>
+              </div>
+              <p className="text-lg font-medium">Bs. {fmt(Number(form.binance) || 0, 2)}</p>
             </div>
           </div>
 
