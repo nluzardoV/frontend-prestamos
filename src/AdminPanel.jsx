@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import api from './api';
 import CreditoNominaSimulator from './CreditoNominaSimulator';
 
+const REMESA_EMPRESA = {
+  nombre: 'IRMA',
+  rif: 'J000000000',
+};
+
 export default function AdminPanel({ onLogout }) {
   const [tab, setTab] = useState('clientes');
   const [clientes, setClientes] = useState([]);
@@ -123,25 +128,80 @@ export default function AdminPanel({ onLogout }) {
   }
 
   function handleExportarTXT() {
-    let contenido = "cedula|nombre|banco|numero_cuenta|tipo_cuenta|monto_cuota|fecha_quincena\n";
+    const limpiarCampo = (valor) =>
+      String(valor ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9.]/g, '');
+
+    const formatearFecha = (valor = new Date()) => {
+      const fecha = valor instanceof Date ? valor : new Date(valor);
+      const yyyy = fecha.getFullYear();
+      const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dd = String(fecha.getDate()).padStart(2, '0');
+      return `${yyyy}${mm}${dd}`;
+    };
+
+    const formatearMonto = (valor) => (Number(valor) || 0).toFixed(2);
+    const fechaGeneracion = formatearFecha();
+    const registros = [];
+
     prestamos.forEach(p => {
       if (p.estado === 'PENDIENTE' || p.estado === 'APROBADO') {
         const empleado = p.empleado;
         if (p.pagos) {
           p.pagos.forEach(pago => {
             if (pago.estado === 'PENDIENTE') {
-              contenido += `${empleado.cedula}|${empleado.nombre}|${empleado.banco || ''}|${empleado.numero_cuenta || ''}|${empleado.tipo_cuenta || ''}|${pago.monto_esperado}|${pago.fecha_esperada || ''}\n`;
+              const rifEmpresa = limpiarCampo(empleado?.empresa?.rif || REMESA_EMPRESA.rif);
+              const nombreEmpresa = limpiarCampo(empleado?.empresa?.nombre || REMESA_EMPRESA.nombre);
+              const cedulaCliente = limpiarCampo(empleado?.cedula);
+              const nombreCliente = limpiarCampo(empleado?.nombre);
+              const banco = limpiarCampo(empleado?.banco);
+              const numeroCuenta = limpiarCampo(empleado?.numero_cuenta);
+              const tipoCuenta = limpiarCampo(empleado?.tipo_cuenta);
+              const monto = formatearMonto(pago.monto_esperado);
+              const fecha = formatearFecha(pago.fecha_esperada);
+              const numeroReferencia = limpiarCampo(`${p.id}${pago.id}${fecha}`);
+
+              registros.push([
+                rifEmpresa,
+                nombreEmpresa,
+                cedulaCliente,
+                nombreCliente,
+                banco,
+                numeroCuenta,
+                tipoCuenta,
+                monto,
+                fecha,
+                numeroReferencia,
+              ].join('|'));
             }
           });
         }
       }
     });
+
+    const montoTotal = registros.reduce((total, linea) => {
+      const campos = linea.split('|');
+      return total + (Number(campos[7]) || 0);
+    }, 0);
+
+    const encabezado = [
+      'HDR',
+      limpiarCampo(REMESA_EMPRESA.nombre),
+      limpiarCampo(REMESA_EMPRESA.rif),
+      fechaGeneracion,
+      registros.length,
+      formatearMonto(montoTotal),
+    ].join('|');
+
+    const contenido = [encabezado, ...registros].join('\n');
     
     const blob = new Blob([contenido], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `remesa_quincena_${new Date().toISOString().split('T')[0]}.txt`;
+    a.download = `remesa_${fechaGeneracion}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   }
