@@ -58,6 +58,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
   const [selectedCliente, setSelectedCliente] = useState('');
   const [selectedEquipoId, setSelectedEquipoId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mensajePrestamo, setMensajePrestamo] = useState(null);
 
   const [form, setForm] = useState({
     costo: 135,
@@ -307,7 +308,10 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                 <select 
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-gray-400 bg-white"
                   value={selectedCliente}
-                  onChange={e => setSelectedCliente(e.target.value)}
+                  onChange={e => {
+                    setSelectedCliente(e.target.value);
+                    setMensajePrestamo(null);
+                  }}
                 >
                   <option value="">-- Selecciona un cliente --</option>
                   {clientes.map(c => (
@@ -319,6 +323,7 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                 disabled={!selectedCliente || loading}
                 onClick={async () => {
                   setLoading(true);
+                  setMensajePrestamo(null);
                   try {
                     const res = await api.post('/prestamos', {
                       empleadoId: parseInt(selectedCliente),
@@ -326,13 +331,13 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                       quincenas: parseInt(form.quincenas)
                     });
                     if (res.data.alerta) {
-                      alert(res.data.mensaje); // Requires admin bypass if over 70%, but backend blocks it unless we pass autorizadoPor. For now just alert.
+                      setMensajePrestamo({ tipo: 'error', texto: res.data.mensaje });
                     } else {
-                      alert('Préstamo registrado exitosamente');
+                      setMensajePrestamo({ tipo: 'success', texto: 'Préstamo registrado exitosamente' });
                       if (onSuccess) onSuccess();
                     }
                   } catch(e) {
-                    alert('Error: ' + (e.response?.data?.message || e.message));
+                    setMensajePrestamo({ tipo: 'error', texto: e.response?.data?.message || e.message });
                   } finally {
                     setLoading(false);
                   }
@@ -342,6 +347,17 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                 {loading ? 'Guardando...' : 'Confirmar Préstamo'}
               </button>
             </div>
+            {mensajePrestamo && (
+              <div
+                className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+                  mensajePrestamo.tipo === 'success'
+                    ? 'bg-green-50 border-green-200 text-green-800'
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}
+              >
+                {mensajePrestamo.tipo === 'error' ? `Error: ${mensajePrestamo.texto}` : mensajePrestamo.texto}
+              </div>
+            )}
           </div>
         )}
 
