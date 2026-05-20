@@ -270,8 +270,8 @@ export default function AdminPanel({ onLogout }) {
                 + Nuevo Cliente
               </button>
             </div>
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-sm text-left">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
+              <table className="w-full min-w-[760px] text-sm text-left">
                 <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 font-medium">Cédula</th>
@@ -313,9 +313,9 @@ export default function AdminPanel({ onLogout }) {
 
         {tab === 'prestamos' && (
           <div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
               <h1 className="text-xl font-medium text-gray-900">Préstamos Activos</h1>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button onClick={handleExportarTXT} className="bg-gray-800 text-white px-4 py-2 text-sm rounded-lg hover:bg-gray-700">
                   Exportar Remesa (TXT)
                 </button>
@@ -324,8 +324,8 @@ export default function AdminPanel({ onLogout }) {
                 </button>
               </div>
             </div>
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-sm text-left">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
+              <table className="w-full min-w-[820px] text-sm text-left">
                 <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 font-medium">ID</th>
@@ -381,8 +381,8 @@ export default function AdminPanel({ onLogout }) {
                 + Nuevo Equipo
               </button>
             </div>
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-              <table className="w-full text-sm text-left">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
+              <table className="w-full min-w-[560px] text-sm text-left">
                 <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
                   <tr>
                     <th className="px-4 py-3 font-medium">Nombre del Equipo</th>
