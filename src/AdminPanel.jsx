@@ -105,9 +105,10 @@ export default function AdminPanel({ onLogout }) {
     setPrestamoDetalle(res.data);
   }
 
-  async function handleMarcarPagado(pagoId) {
+  async function handleMarcarPagado(pago) {
     try {
-      await api.post(`/prestamos/pago/${pagoId}`, { montoPagado: prestamoDetalle.cuota_quincenal });
+      const montoTotal = Number(pago.monto_esperado || 0) + Number(pago.recargo_fijo || 0);
+      await api.post(`/prestamos/pago/${pago.id}`, { montoPagado: montoTotal, recargoFijo: Number(pago.recargo_fijo || 0) });
       const res = await api.get(`/prestamos/${prestamoDetalle.id}`);
       setPrestamoDetalle(res.data);
       fetchData();
@@ -117,8 +118,16 @@ export default function AdminPanel({ onLogout }) {
   }
 
   async function handleMarcarMora(pagoId) {
+    const recargo = window.prompt('Ingrese el interés o recargo para esta cuota:', '0');
+    if (recargo === null) return;
+    const recargoFijo = Number(recargo);
+    if (!Number.isFinite(recargoFijo) || recargoFijo < 0) {
+      alert('Ingrese un recargo válido.');
+      return;
+    }
+
     try {
-      await api.post(`/prestamos/mora/${pagoId}`, { recargoFijo: 0 });
+      await api.post(`/prestamos/mora/${pagoId}`, { recargoFijo });
       const res = await api.get(`/prestamos/${prestamoDetalle.id}`);
       setPrestamoDetalle(res.data);
       fetchData();
@@ -497,6 +506,8 @@ export default function AdminPanel({ onLogout }) {
                     <th className="pb-2 text-left font-medium">Quincena</th>
                     <th className="pb-2 text-left font-medium">Fecha</th>
                     <th className="pb-2 text-left font-medium">Monto</th>
+                    <th className="pb-2 text-left font-medium">Recargo</th>
+                    <th className="pb-2 text-left font-medium">Total</th>
                     <th className="pb-2 text-left font-medium">Estado</th>
                     <th className="pb-2 text-left font-medium">Acción</th>
                   </tr>
@@ -507,6 +518,8 @@ export default function AdminPanel({ onLogout }) {
                       <td className="py-2 text-gray-600">#{pago.numero_quincena}</td>
                       <td className="py-2 text-gray-600">{pago.fecha_esperada || '---'}</td>
                       <td className="py-2 font-medium">${Number(pago.monto_esperado).toFixed(2)}</td>
+                      <td className="py-2 text-gray-600">${Number(pago.recargo_fijo || 0).toFixed(2)}</td>
+                      <td className="py-2 font-medium">${(Number(pago.monto_esperado || 0) + Number(pago.recargo_fijo || 0)).toFixed(2)}</td>
                       <td className="py-2">
                         <span className={`text-xs px-2 py-1 rounded-full ${
                           pago.estado === 'PAGADO' ? 'bg-green-100 text-green-800' :
@@ -515,16 +528,18 @@ export default function AdminPanel({ onLogout }) {
                         }`}>{pago.estado}</span>
                       </td>
                       <td className="py-2">
-                        {pago.estado === 'PENDIENTE' && (
+                        {(pago.estado === 'PENDIENTE' || pago.estado === 'MORA') && (
                           <div className="flex gap-2">
-                            <button onClick={() => handleMarcarPagado(pago.id)}
+                            <button onClick={() => handleMarcarPagado(pago)}
                               className="text-xs text-green-600 border border-green-200 px-2 py-1 rounded-lg hover:bg-green-50">
                               ✓ Pagado
                             </button>
-                            <button onClick={() => handleMarcarMora(pago.id)}
-                              className="text-xs text-red-500 border border-red-200 px-2 py-1 rounded-lg hover:bg-red-50">
-                              Mora
-                            </button>
+                            {pago.estado === 'PENDIENTE' && (
+                              <button onClick={() => handleMarcarMora(pago.id)}
+                                className="text-xs text-red-500 border border-red-200 px-2 py-1 rounded-lg hover:bg-red-50">
+                                Mora
+                              </button>
+                            )}
                           </div>
                         )}
                       </td>

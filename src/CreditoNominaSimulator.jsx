@@ -1,39 +1,23 @@
 import { useState, useMemo, useEffect } from "react";
 import api from './api';
 
-const IVA = 0.16;
-
-function calcular({ costo, factor, comision, deduccionPct, bcv, paralelo, quincenas }) {
+function calcular({ costo, pagoInicial, gananciaInteres, bcv, paralelo, quincenas }) {
   const _costo = parseFloat(costo) || 0;
-  const _factor = parseFloat(factor) || 0;
-  const _comision = parseFloat(comision) || 0;
-  const _deduccionPct = parseFloat(deduccionPct) || 0;
+  const _pagoInicial = parseFloat(pagoInicial) || 0;
+  const _gananciaInteres = parseFloat(gananciaInteres) || 0;
   const _bcv = parseFloat(bcv) || 1;
   const _paralelo = parseFloat(paralelo) || 1;
   const _quincenas = parseInt(quincenas) || 24;
 
-  const precioVenta = _costo * _factor;
-  const inversionInicial = _costo + _comision;
-  const deduccionUSD = precioVenta * (_deduccionPct / 100) * (1 + IVA);
-  const utilidadBruta = precioVenta - deduccionUSD;
-  const comercializacion = utilidadBruta * 0.1;
-  const utilidadNeta = utilidadBruta - comercializacion;
-  const utilidadMensual = utilidadNeta / (_quincenas / 2);
-  const roi = utilidadNeta - inversionInicial;
-  const roiPct = inversionInicial > 0 ? (roi / inversionInicial) * 100 : 0;
-  const cuotaUSD = precioVenta / _quincenas;
+  const saldoRestante = Math.max(_costo - _pagoInicial, 0);
+  const totalFinal = saldoRestante + _gananciaInteres;
+  const cuotaUSD = totalFinal / _quincenas;
   const diferencialCambiario = Math.abs(((_bcv - _paralelo) / _paralelo) * 100);
 
   return {
-    precioVenta,
-    inversionInicial,
-    deduccionUSD,
-    utilidadBruta,
-    comercializacion,
-    utilidadNeta,
-    utilidadMensual,
-    roi,
-    roiPct,
+    saldoRestante,
+    totalFinal,
+    gananciaInteres: _gananciaInteres,
     cuotaUSD,
     diferencialCambiario,
   };
@@ -62,9 +46,8 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
 
   const [form, setForm] = useState({
     costo: 135,
-    factor: 3.8,
-    comision: 33.33,
-    deduccionPct: 10,
+    pagoInicial: 0,
+    gananciaInteres: 0,
     bcv: 48.25,
     paralelo: 62,
     binance: 0,
@@ -102,15 +85,15 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
 
   const quincenasLista = useMemo(() => {
     const _q = parseInt(form.quincenas) || 24;
-    const capitalPorQ = s.inversionInicial / _q;
-    const margenPorQ = s.utilidadNeta / _q;
+    const capitalPorQ = s.saldoRestante / _q;
+    const margenPorQ = s.gananciaInteres / _q;
     let acumCapital = 0;
     return Array.from({ length: _q }, (_, i) => {
       const q = i + 1;
       const mes = Math.ceil(q / 2);
       const label = q % 2 === 1 ? `Mes ${mes} — 1ª` : `Mes ${mes} — 2ª`;
       acumCapital += capitalPorQ;
-      const esRetorno = acumCapital <= s.inversionInicial + 0.001;
+      const esRetorno = acumCapital <= s.saldoRestante + 0.001;
       return { q, label, cuota: s.cuotaUSD, capital: capitalPorQ, margen: margenPorQ, esRetorno };
     });
   }, [s, form.quincenas]);
@@ -122,10 +105,11 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
   }
 
   const cards = [
-    { label: "Precio de venta", value: fmtCur(s.precioVenta), sub: `Costo × ${form.factor}`, color: "text-gray-900" },
-    { label: "Utilidad neta", value: fmtCur(s.utilidadNeta), sub: "Tras deducción y comercialización", color: "text-emerald-600" },
-    { label: "Inversión inicial", value: fmtCur(s.inversionInicial), sub: "Costo + comisión vendedor", color: "text-gray-900" },
-    { label: "ROI neto", value: `${fmt(s.roiPct, 1)}%`, sub: `${fmtCur(s.roi)} sobre la inversión`, color: "text-amber-600" },
+    { label: "Costo unitario", value: fmtCur(parseFloat(form.costo) || 0), sub: "Costo del equipo", color: "text-gray-900" },
+    { label: "Pago inicial", value: fmtCur(parseFloat(form.pagoInicial) || 0), sub: "Enganche aplicado", color: "text-gray-900" },
+    { label: "Saldo restante", value: fmtCur(s.saldoRestante), sub: "Costo menos pago inicial", color: "text-gray-900" },
+    { label: "Ganancia / interés", value: fmtCur(s.gananciaInteres), sub: "Opcional", color: "text-emerald-600" },
+    { label: "Total final", value: fmtCur(s.totalFinal), sub: "Saldo + ganancia/interés", color: "text-gray-900" },
     { label: "Cuota quincenal", value: fmtCur(s.cuotaUSD), sub: `${form.quincenas} quincenas`, color: "text-gray-900" },
     { label: "Diferencial cambiario", value: `${fmt(s.diferencialCambiario, 1)}%`, sub: "BCV vs Paralelo", color: "text-gray-900" },
   ];
@@ -186,16 +170,12 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
               }} />
             </div>
             <div>
-              <label className={labelClass}>Factor de precio de venta</label>
-              <input type="number" className={inputClass} value={form.factor} step="0.1" min="1" onChange={set("factor")} />
+              <label className={labelClass}>Pago inicial ($)</label>
+              <input type="number" className={inputClass} value={form.pagoInicial} step="0.01" min="0" onChange={set("pagoInicial")} />
             </div>
             <div>
-              <label className={labelClass}>Comisión vendedor ($) — se suma al costo</label>
-              <input type="number" className={inputClass} value={form.comision} step="0.01" min="0" onChange={set("comision")} />
-            </div>
-            <div>
-              <label className={labelClass}>Deducción empresa de cobranza (%)</label>
-              <input type="number" className={inputClass} value={form.deduccionPct} step="0.1" min="0" max="100" onChange={set("deduccionPct")} />
+              <label className={labelClass}>Ganancia fija o interés ($)</label>
+              <input type="number" className={inputClass} value={form.gananciaInteres} step="0.01" min="0" onChange={set("gananciaInteres")} />
             </div>
             <div>
               <label className={labelClass}>Número de quincenas</label>
@@ -227,11 +207,11 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
 
           <div className="space-y-2">
             {[
-              ["Precio de venta total", fmtCur(s.precioVenta), false],
-              [`Deducción cobranza (${form.deduccionPct}% + IVA 16%)`, `− ${fmtCur(s.deduccionUSD)}`, false],
-              ["Comercialización ventas (10%)", `− ${fmtCur(s.comercializacion)}`, false],
-              ["Utilidad neta total", fmtCur(s.utilidadNeta), true],
-              ["Utilidad mensual estimada", `${fmtCur(s.utilidadMensual)} / mes`, false],
+              ["Costo unitario", fmtCur(parseFloat(form.costo) || 0), false],
+              ["Pago inicial", `− ${fmtCur(parseFloat(form.pagoInicial) || 0)}`, false],
+              ["Saldo restante", fmtCur(s.saldoRestante), false],
+              ["Ganancia fija o interés", fmtCur(s.gananciaInteres), false],
+              ["Total final a pagar", fmtCur(s.totalFinal), true],
               ["Cuota quincenal en BCV", `Bs. ${fmt(s.cuotaUSD * form.bcv)}`, false],
               ["Cuota quincenal en Paralelo", `Bs. ${fmt(s.cuotaUSD * form.paralelo)}`, false],
             ].map(([label, value, highlight]) => (
@@ -328,6 +308,8 @@ export default function CreditoNominaSimulator({ clientes = [], equipos = [], on
                     const res = await api.post('/prestamos', {
                       empleadoId: parseInt(selectedCliente),
                       costoEquipo: form.costo,
+                      pagoInicial: form.pagoInicial,
+                      gananciaInteres: form.gananciaInteres,
                       quincenas: parseInt(form.quincenas)
                     });
                     if (res.data.alerta) {
