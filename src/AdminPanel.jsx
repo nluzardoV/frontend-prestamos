@@ -141,7 +141,8 @@ export default function AdminPanel({ onLogout }) {
       String(valor ?? '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9.]/g, '');
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .trim();
 
     const formatearFecha = (valor = new Date()) => {
       const fecha = valor instanceof Date ? valor : new Date(valor);
@@ -170,7 +171,6 @@ export default function AdminPanel({ onLogout }) {
               const tipoCuenta = limpiarCampo(empleado?.tipo_cuenta);
               const monto = formatearMonto(pago.monto_esperado);
               const fecha = formatearFecha(pago.fecha_esperada);
-              const numeroReferencia = limpiarCampo(`${p.id}${pago.id}${fecha}`);
 
               registros.push([
                 rifEmpresa,
@@ -182,8 +182,7 @@ export default function AdminPanel({ onLogout }) {
                 tipoCuenta,
                 monto,
                 fecha,
-                numeroReferencia,
-              ].join('|'));
+              ].join(','));
             }
           });
         }
@@ -191,7 +190,7 @@ export default function AdminPanel({ onLogout }) {
     });
 
     const montoTotal = registros.reduce((total, linea) => {
-      const campos = linea.split('|');
+      const campos = linea.split(',');
       return total + (Number(campos[7]) || 0);
     }, 0);
 
@@ -202,7 +201,7 @@ export default function AdminPanel({ onLogout }) {
       fechaGeneracion,
       registros.length,
       formatearMonto(montoTotal),
-    ].join('|');
+    ].join(',');
 
     const contenido = [encabezado, ...registros].join('\n');
     
@@ -220,7 +219,7 @@ export default function AdminPanel({ onLogout }) {
       String(valor ?? '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9 ,]/g, '')
+        .replace(/[^a-zA-Z0-9 ]/g, '')
         .trim();
 
     const formatearFechaExcel = (valor = new Date()) => {
@@ -231,8 +230,8 @@ export default function AdminPanel({ onLogout }) {
       return `${yyyy}${mm}${dd}`;
     };
 
-    const formatearMontoExcel = (valor) => (Number(valor) || 0).toFixed(2).replace('.', ',');
-    const data = [];
+    const formatearMontoExcel = (valor) => (Number(valor) || 0).toFixed(2);
+    const detalles = [];
     prestamos.forEach(p => {
       if (p.estado === 'PENDIENTE' || p.estado === 'APROBADO') {
         const empleado = p.empleado;
@@ -240,26 +239,41 @@ export default function AdminPanel({ onLogout }) {
           p.pagos.forEach(pago => {
             if (pago.estado === 'PENDIENTE') {
               const fecha = formatearFechaExcel(pago.fecha_esperada);
-              data.push({
-                RIF_EMPRESA: limpiarCampoExcel(empleado?.empresa?.rif || REMESA_EMPRESA.rif),
-                NOMBRE_EMPRESA: limpiarCampoExcel(empleado?.empresa?.nombre || REMESA_EMPRESA.nombre),
-                CEDULA_CLIENTE: limpiarCampoExcel(empleado?.cedula),
-                NOMBRE_CLIENTE: limpiarCampoExcel(empleado?.nombre),
-                BANCO: limpiarCampoExcel(empleado?.banco),
-                NUMERO_CUENTA: limpiarCampoExcel(empleado?.numero_cuenta),
-                TIPO_CUENTA: limpiarCampoExcel(empleado?.tipo_cuenta),
-                MONTO: formatearMontoExcel(pago.monto_esperado),
-                FECHA: fecha,
-                REFERENCIA: limpiarCampoExcel(`${p.id}${pago.id}${fecha}`)
-              });
+              detalles.push([
+                limpiarCampoExcel(empleado?.empresa?.rif || REMESA_EMPRESA.rif),
+                limpiarCampoExcel(empleado?.empresa?.nombre || REMESA_EMPRESA.nombre),
+                limpiarCampoExcel(empleado?.cedula),
+                limpiarCampoExcel(empleado?.nombre),
+                limpiarCampoExcel(empleado?.banco),
+                limpiarCampoExcel(empleado?.numero_cuenta),
+                limpiarCampoExcel(empleado?.tipo_cuenta),
+                formatearMontoExcel(pago.monto_esperado),
+                fecha
+              ]);
             }
           });
         }
       }
     });
 
+    const fechaGeneracion = formatearFechaExcel();
+    const montoTotal = detalles.reduce((total, fila) => total + (Number(fila[7]) || 0), 0);
+    const hdrRow = [
+      'HDR',
+      limpiarCampoExcel(REMESA_EMPRESA.nombre),
+      limpiarCampoExcel(REMESA_EMPRESA.rif),
+      fechaGeneracion,
+      detalles.length,
+      formatearMontoExcel(montoTotal)
+    ];
+    const data = [hdrRow, ...detalles];
+
     import('xlsx').then((XLSX) => {
-      const ws = XLSX.utils.json_to_sheet(data);
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!ref'] = XLSX.utils.encode_range({
+        s: { c: 0, r: 0 },
+        e: { c: 8, r: detalles.length }
+      });
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Remesa");
       XLSX.writeFile(wb, `remesa_quincena_${new Date().toISOString().split('T')[0]}.xlsx`);
