@@ -152,7 +152,7 @@ export default function AdminPanel({ onLogout }) {
       return `${yyyy}${mm}${dd}`;
     };
 
-    const formatearMonto = (valor) => (Number(valor) || 0).toFixed(2);
+    const formatearMonto = (valor) => (Number(valor) || 0).toFixed(2).replace('.', ',');
     const fechaGeneracion = formatearFecha();
     const registros = [];
 
@@ -191,7 +191,7 @@ export default function AdminPanel({ onLogout }) {
 
     const montoTotal = registros.reduce((total, linea) => {
       const campos = linea.split(',');
-      return total + (Number(campos[7]) || 0);
+      return total + (Number(String(campos[7]).replace(',', '.')) || 0);
     }, 0);
 
     const encabezado = [
@@ -230,7 +230,7 @@ export default function AdminPanel({ onLogout }) {
       return `${yyyy}${mm}${dd}`;
     };
 
-    const formatearMontoExcel = (valor) => (Number(valor) || 0).toFixed(2);
+    const formatearMontoExcel = (valor) => (Number(valor) || 0).toFixed(2).replace('.', ',');
     const detalles = [];
     prestamos.forEach(p => {
       if (p.estado === 'PENDIENTE' || p.estado === 'APROBADO') {
@@ -257,7 +257,7 @@ export default function AdminPanel({ onLogout }) {
     });
 
     const fechaGeneracion = formatearFechaExcel();
-    const montoTotal = detalles.reduce((total, fila) => total + (Number(fila[7]) || 0), 0);
+    const montoTotal = detalles.reduce((total, fila) => total + (Number(String(fila[7]).replace(',', '.')) || 0), 0);
     const hdrRow = [
       'HDR',
       limpiarCampoExcel(REMESA_EMPRESA.nombre),
