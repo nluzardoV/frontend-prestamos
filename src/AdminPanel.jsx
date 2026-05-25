@@ -216,6 +216,22 @@ export default function AdminPanel({ onLogout }) {
   }
 
   function handleExportarExcel() {
+    const limpiarCampoExcel = (valor) =>
+      String(valor ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9 ,]/g, '')
+        .trim();
+
+    const formatearFechaExcel = (valor = new Date()) => {
+      const fecha = valor instanceof Date ? valor : new Date(valor);
+      const yyyy = fecha.getFullYear();
+      const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dd = String(fecha.getDate()).padStart(2, '0');
+      return `${yyyy}${mm}${dd}`;
+    };
+
+    const formatearMontoExcel = (valor) => (Number(valor) || 0).toFixed(2).replace('.', ',');
     const data = [];
     prestamos.forEach(p => {
       if (p.estado === 'PENDIENTE' || p.estado === 'APROBADO') {
@@ -223,14 +239,18 @@ export default function AdminPanel({ onLogout }) {
         if (p.pagos) {
           p.pagos.forEach(pago => {
             if (pago.estado === 'PENDIENTE') {
+              const fecha = formatearFechaExcel(pago.fecha_esperada);
               data.push({
-                Cedula: empleado.cedula,
-                Nombre: empleado.nombre,
-                Banco: empleado.banco || '',
-                Cuenta: empleado.numero_cuenta || '',
-                Tipo: empleado.tipo_cuenta || '',
-                Monto: Number(pago.monto_esperado).toFixed(2),
-                Fecha: pago.fecha_esperada || ''
+                RIF_EMPRESA: limpiarCampoExcel(empleado?.empresa?.rif || REMESA_EMPRESA.rif),
+                NOMBRE_EMPRESA: limpiarCampoExcel(empleado?.empresa?.nombre || REMESA_EMPRESA.nombre),
+                CEDULA_CLIENTE: limpiarCampoExcel(empleado?.cedula),
+                NOMBRE_CLIENTE: limpiarCampoExcel(empleado?.nombre),
+                BANCO: limpiarCampoExcel(empleado?.banco),
+                NUMERO_CUENTA: limpiarCampoExcel(empleado?.numero_cuenta),
+                TIPO_CUENTA: limpiarCampoExcel(empleado?.tipo_cuenta),
+                MONTO: formatearMontoExcel(pago.monto_esperado),
+                FECHA: fecha,
+                REFERENCIA: limpiarCampoExcel(`${p.id}${pago.id}${fecha}`)
               });
             }
           });
